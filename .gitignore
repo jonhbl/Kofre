@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -127,3 +128,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+=======
+\sistema_sql
+Escopo_Script.pdf
+\.ipynb_checkpoints
+\__pycache__
+\logs_teste
+\galeao_1m
+\galeao_7hrs
+teste.ipynb
+fix.ipynb
+translator_1.0.5.py
+sanitizer.ipynb
+>>>>>>> 6aaab87148751c9b0849cef0159e0dfd8a11686a
