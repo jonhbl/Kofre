@@ -14,26 +14,26 @@ PTT_EVENT_CODE = 2
 CALL_INFORMATION_EVENT_CODE = 3
 COMPLETE_EVENT = ['Data', 'ID', 'Grupo', 'Evento', 'CodEvento', 'Canal', 'site', 'Duracao']
 
-def getCallId(callColumn: str, sequenceColumn: str) -> str:
-        callId = callColumn.split('=')[-1].replace(' ','')
-        if "(" in callId:
-                callId = callId.split("(")[0]
-        sequence = sequenceColumn.split('=')[-1].replace(' ','')
-        if "(" in sequence:
-            sequence = sequence.split("(")[0]   
-        return f"{callId}_{sequence}"
 
-def getSite(siteColumn: str) -> str:
-    """
-    
-    """
-    site = siteColumn.split('=')[-1].replace(' ','')
+def get_call_id(call_column: str, sequence_column: str) -> str:
+    call_id = call_column.split('=')[-1].replace(' ', '')
+    if "(" in call_id:
+        call_id = call_id.split("(")[0]
+    sequence = sequence_column.split('=')[-1].replace(' ', '')
+    if "(" in sequence:
+        sequence = sequence.split("(")[0]
+    return f"{call_id}_{sequence}"
+
+
+def get_site(site_column: str) -> str:
+    site = site_column.split('=')[-1].replace(' ', '')
     if "(" in site:
-            site = site.split("(")[0]
+        site = site.split("(")[0]
     return int(site)
 
-def getParamsPos(line: str) -> tuple:
-    for i,param in enumerate(line.split(';')):
+
+def get_params_pos(line: str) -> tuple:
+    for i, param in enumerate(line.split(';')):
         if('REQUESTER {Individual = ' in param):
             id_ = i
         if('TARGET {Secondary ID = ' in param):
@@ -41,210 +41,195 @@ def getParamsPos(line: str) -> tuple:
             talk_group = i
     return id_, channel, talk_group
 
-def getIDChannelTalkGroup(column: list) -> tuple:
-    id_ = re.search(r'Individual =(.*?)\(',column[ID_POS]).group(1).replace(' ','')
-    channel = re.search(r'\"(.*?)\"',column[CHANNEL_POS]).group(1).replace(' ','')
-    talkGroup = re.search(r'Secondary ID =(.*?)\(', column[TALK_GROUP_POS]).group(1).replace(' ','')
-    return id_, channel, talkGroup
 
-def StartOfCallEvent(events: dict, column: list, line: str)->None:
-    callId = getCallId(column[0], column[1])
-    startTime = datetime.strptime(re.search(r'\[(.*?)\]',column[0]).group(1), "%m/%d/%y %H:%M:%S") 
-    id_, channel, talkGroup = getIDChannelTalkGroup(column)
-    if callId not in events:
-        events[callId] = {}
-        events[callId]["Data"] = startTime
-        events[callId]["ID"] = id_
-        events[callId]["Grupo"] = talkGroup
-        events[callId]["Evento"] = line.replace(';',',').replace('\n','').replace("\"","'").replace("'","")
-        events[callId]["CodEvento"] = CALL_EVENT_CODE
-        events[callId]["Canal"] = channel
+def get_id_channel_talk_group(column: list) -> tuple:
+    id_ = re.search(r'Individual =(.*?)\(', column[ID_POS]).group(1).replace(' ', '')
+    channel = re.search(r'\"(.*?)\"', column[CHANNEL_POS]).group(1).replace(' ', '')
+    talk_group = re.search(r'Secondary ID =(.*?)\(', column[TALK_GROUP_POS]).group(1).replace(' ', '')
+    return id_, channel, talk_group
+
+
+def start_of_call_event(events: dict, column: list, line: str) -> None:
+    call_id = get_call_id(column[0], column[1])
+    start_time = datetime.strptime(re.search(r'\[(.*?)\]', column[0]).group(1), "%m/%d/%y %H:%M:%S")
+    id_, channel, talk_group = get_id_channel_talk_group(column)
+    if call_id not in events:
+        events[call_id] = {}
+        events[call_id]["Data"] = start_time
+        events[call_id]["ID"] = id_
+        events[call_id]["Grupo"] = talk_group
+        events[call_id]["Evento"] = line.replace(';', ',').replace('\n', '').replace("\"", "'").replace("'", "")
+        events[call_id]["CodEvento"] = CALL_EVENT_CODE
+        events[call_id]["Canal"] = channel
     return events
 
-def StartOfCallUpdateEvent(events: dict, column: list)->None:
-    callId = getCallId(column[0], column[1])
-    if callId in events:
-        if events[callId]["CodEvento"] == CALL_EVENT_CODE:
-            siteId = getSite(column[7])
-            events[callId]["site"] = siteId
+
+def start_of_call_update_event(events: dict, column: list) -> None:
+    call_id = get_call_id(column[0], column[1])
+    if call_id in events:
+        if events[call_id]["CodEvento"] == CALL_EVENT_CODE:
+            site_id = get_site(column[7])
+            events[call_id]["site"] = site_id
     return events
 
-def PttEvent(events: dict, column: list, line: str)->None:
-    callId = getCallId(column[0], column[1]).split("_")[0]
-    sequence = int(getCallId(column[0], column[1]).split("_")[1])
-    callIdSequence = f"{callId}_{str(sequence)}"
-    startTime = datetime.strptime(re.search(r'\[(.*?)\]',column[0]).group(1), "%m/%d/%y %H:%M:%S") 
-    id_, channel, talkGroup = getIDChannelTalkGroup(column)
+
+def ptt_event(events: dict, column: list, line: str) -> None:
+    call_id = get_call_id(column[0], column[1]).split("_")[0]
+    sequence = int(get_call_id(column[0], column[1]).split("_")[1])
+    call_id_sequence = f"{call_id}_{str(sequence)}"
+    start_time = datetime.strptime(re.search(r'\[(.*?)\]', column[0]).group(1), "%m/%d/%y %H:%M:%S")
+    id_, channel, talk_group = get_id_channel_talk_group(column)
     if (sequence > 1):
         try:
-            previousCall = f"{callId}_{str(sequence-1)}"
-            events[previousCall]["Duracao"] = int((startTime - events[previousCall]["Data"]).total_seconds())
+            previous_call = f"{call_id}_{str(sequence-1)}"
+            events[previous_call]["Duracao"] = int((start_time - events[previous_call]["Data"]).total_seconds())
         except KeyError:
-            try:    
-                previousCall = [event for event in events.keys() if callId in event][-1]
-                events[previousCall]["Duracao"] = int((startTime - events[previousCall]["Data"]).total_seconds())
-            except IndexError:
-                #Eventos anteriores
+            try:
+                previous_call = [event for event in events.keys() if call_id in event][-1]
+                events[previous_call]["Duracao"] = int((start_time - events[previous_call]["Data"]).total_seconds())
+            except IndexError:  # Eventos Anteriores
                 return events
-    if callIdSequence not in events:
-        events[callIdSequence] = {}
-        events[callIdSequence]["Data"] = startTime
-        events[callIdSequence]["ID"] = id_
-        events[callIdSequence]["Grupo"] = talkGroup
-        events[callIdSequence]["Evento"] = line.replace(';',',').replace('\n','').replace("\"","'").replace("'","")
-        events[callIdSequence]["CodEvento"] = PTT_EVENT_CODE
-        events[callIdSequence]["Canal"] = channel
+    if call_id_sequence not in events:
+        events[call_id_sequence] = {}
+        events[call_id_sequence]["Data"] = start_time
+        events[call_id_sequence]["ID"] = id_
+        events[call_id_sequence]["Grupo"] = talk_group
+        events[call_id_sequence]["Evento"] = line.replace(';', ',').replace('\n', '').replace("\"", "'").replace("'", "")
+        events[call_id_sequence]["CodEvento"] = PTT_EVENT_CODE
+        events[call_id_sequence]["Canal"] = channel
     return events
 
-def PttUpdateEvent(events: dict, column: list)->None:
-    callId = getCallId(column[0], column[1])
-    if callId in events:
-        if events[callId]["CodEvento"] == PTT_EVENT_CODE:
-            siteId = getSite(column[6])
-            events[callId]["site"] = siteId
+
+def ptt_update_event(events: dict, column: list) -> None:
+    call_id = get_call_id(column[0], column[1])
+    if call_id in events:
+        if events[call_id]["CodEvento"] == PTT_EVENT_CODE:
+            site_id = get_site(column[6])
+            events[call_id]["site"] = site_id
     return events
 
-def CallInformationEvent(events: dict, column: list,line: str)->None:
-    callId = getCallId(column[0], column[1])
-    siteId = column[6].split('=')[-1].replace(' ','')
-    startTime = datetime.strptime(re.search(r'\[(.*?)\]',column[0]).group(1), "%m/%d/%y %H:%M:%S") 
-    if callId not in events:
-        events[callId] = {}
-        events[callId]["site"] = siteId
-        events[callId]["Evento"] = line.replace(';',',').replace('\n','').replace("\"","'").replace("'","")
-        events[callId]["Data"] = startTime
-        events[callId]["CodEvento"] = CALL_INFORMATION_EVENT_CODE
+
+def call_information_event(events: dict, column: list, line: str) -> None:
+    call_id = get_call_id(column[0], column[1])
+    site_id = column[6].split('=')[-1].replace(' ', '')
+    start_time = datetime.strptime(re.search(r'\[(.*?)\]', column[0]).group(1), "%m/%d/%y %H:%M:%S")
+    if call_id in events:
+        events[call_id]["site"] = site_id
+        events[call_id]["Evento"] = line.replace(';', ',').replace('\n', '').replace("\"", "'").replace("'", "")
+        events[call_id]["Data"] = start_time
+        events[call_id]["CodEvento"] = CALL_INFORMATION_EVENT_CODE
     return events
 
-def CallInformationEvent(events: dict, column: list,line: str)->None:
-    callId = getCallId(column[0], column[1])
-    siteId = column[6].split('=')[-1].replace(' ','')
-    startTime = datetime.strptime(re.search(r'\[(.*?)\]',column[0]).group(1), "%m/%d/%y %H:%M:%S") 
-    if callId in events:
-        #events[callId] = {}
-        #events[callId]["site"] = siteId
-        #events[callId]["Evento"] = line.replace(';',',').replace('\n','').replace("\"","'").replace("'","")
-        #events[callId]["Data"] = startTime
-        events[callId]["CodEvento"] = CALL_INFORMATION_EVENT_CODE
+
+def end_of_call_event(events: dict, column: list) -> None:
+    call_id = get_call_id(column[0], column[1]).split("_")[0]
+    sequence = int(get_call_id(column[0], column[1]).split("_")[1])
+    end_time = datetime.strptime(re.search(r'\[(.*?)\]', column[0]).group(1), "%m/%d/%y %H:%M:%S")
+    call_id_sequence = f"{call_id}_{str(sequence-1)}"
+    if call_id_sequence in events:
+        events[call_id_sequence]["Duracao"] = int((end_time - events[call_id_sequence]["Data"]).total_seconds())
+        if events[call_id_sequence]["CodEvento"] is CALL_INFORMATION_EVENT_CODE:
+            id_, channel, talk_group = get_id_channel_talk_group(column)
+            events[call_id_sequence]["Grupo"] = talk_group
+            events[call_id_sequence]["Canal"] = channel
+            events[call_id_sequence]["ID"] = id_
     return events
 
-def EndOfCallEvent(events: dict, column: list)->None:
-    callId = getCallId(column[0], column[1]).split("_")[0]
-    sequence = int(getCallId(column[0], column[1]).split("_")[1])
-    endTime = datetime.strptime(re.search(r'\[(.*?)\]',column[0]).group(1), "%m/%d/%y %H:%M:%S")
-    callIdSequence = f"{callId}_{str(sequence-1)}"
-    if callIdSequence in events:
-        events[callIdSequence]["Duracao"] = int((endTime - events[callIdSequence]["Data"]).total_seconds())
-        if events[callIdSequence]["CodEvento"] is CALL_INFORMATION_EVENT_CODE:
-            id_, channel, talkGroup = getIDChannelTalkGroup(column)
-            events[callIdSequence]["Grupo"] = talkGroup
-            events[callIdSequence]["Canal"] = channel
-            events[callIdSequence]["ID"] = id_
-    return events
 
-def readFile(fileName: str)->list:
-    with open(fileName, 'r', encoding='utf-16') as file:
-        fileLines = file.readlines()
-        firstLogLine = 0
-        for line in fileLines:
+def read_file(file_name: str) -> list:
+    with open(file_name, 'r', encoding='utf-16') as file:
+        file_lines = file.readlines()
+        first_log_line = 0
+        for line in file_lines:
             if ";" in line:
-                firstLogLine = fileLines.index(line)
+                first_log_line = file_lines.index(line)
                 break
-        logLines = fileLines[firstLogLine:]
-    return logLines
+        log_lines = file_lines[first_log_line:]
+    return log_lines
 
-def attEvents(events: dict, column: list, line: str)->None:
+
+def att_events(events: dict, column: list, line: str) -> None:
     if START_OF_CALL_EVENT in column[0]:
-        events = StartOfCallEvent(events, column, line)
+        events = start_of_call_event(events, column, line)
 
     elif START_OF_CALL_UPDATE_EVENT in column[0]:
-        events = StartOfCallUpdateEvent(events, column)
+        events = start_of_call_update_event(events, column)
 
     elif PTT_EVENT in column[0]:
-        events = PttEvent(events, column, line)
+        events = ptt_event(events, column, line)
 
     elif PTT_UPDATE_EVENT in column[0]:
-        events = PttUpdateEvent(events, column)
+        events = ptt_update_event(events, column)
 
     elif CALL_INFORMATION_EVENT in column[0]:
-        events = CallInformationEvent(events, column, line)
+        events = call_information_event(events, column, line)
 
     elif END_OF_CALL_EVENT in column[0]:
-        events = EndOfCallEvent(events, column)
+        events = end_of_call_event(events, column)
 
-def incompleteEventBefore():
-    pass
 
-def incompleteEventAfter():
-    pass
-
-def getNextFileName(dir: str, fileName: str, )->str:
+def get_next_file_name(dir_: str, file_name: str, ) -> str:
     try:
-        yearIndex = 0
-        monthIndex = 1
-        dayIndex = 2
-        hourIndex = 3
-        fileInfo = fileName.split('_')
-        time_str = "_".join(fileName.split('.')[1].split('_')[:5])
-        next_time = datetime.strptime(time_str,"%Y_%m_%d_%H_%M")+timedelta(hours=1)
+        year_index = 0
+        month_index = 1
+        day_index = 2
+        hour_index = 3
+        file_info = file_name.split('_')
+        time_str = "_".join(file_name.split('.')[1].split('_')[:5])
+        next_time = datetime.strptime(time_str, "%Y_%m_%d_%H_%M") + timedelta(hours=1)
 
-        fileInfo[yearIndex] = f"log.{next_time.year}"
-        fileInfo[monthIndex] = f"{(next_time.month):02d}"
-        fileInfo[dayIndex] = f"{(next_time.day):02d}"
-        fileInfo[hourIndex] = f"{(next_time.hour):02d}"
+        file_info[year_index] = f"log.{next_time.year}"
+        file_info[month_index] = f"{(next_time.month):02d}"
+        file_info[day_index] = f"{(next_time.day):02d}"
+        file_info[hour_index] = f"{(next_time.hour):02d}"
 
-        nextFileInfo = "_".join(fileInfo[:hourIndex+1])
-        files_arr = np.asarray(os.listdir(dir))
-        position = np.flatnonzero(np.core.defchararray.find(files_arr,nextFileInfo)!=-1)[0]
+        next_file_info = "_".join(file_info[:hour_index + 1])
+        files_arr = np.asarray(os.listdir(dir_))
+        position = np.flatnonzero(np.core.defchararray.find(files_arr, next_file_info) != -1)[0]
         return files_arr[position]
     except IndexError:
-        print(f'Próximo arquivo não está presente!')
+        print(f'Próximo arquivo:{next_file_info} não está presente!')
         return None
 
-def getEvents(dir: str, fileName: str)->dict:
-    filePath = os.path.join(dir, fileName)
+
+def get_events(dir_: str, file_name: str) -> dict:
+    file_path = os.path.join(dir_, file_name)
     calls = []
-    events = {}     
-    logLines = readFile(filePath)
-    print(f"{datetime.now()} - Arquivo {fileName} com {len(logLines)} linhas")
+    events = {}
+    log_lines = read_file(file_path)
+    print(f"{datetime.now()} - Arquivo {file_name} com {len(log_lines)} linhas")
     global ID_POS, CHANNEL_POS, TALK_GROUP_POS
-    for line in logLines:
+    for line in log_lines:
         try:
-            ID_POS, CHANNEL_POS, TALK_GROUP_POS = getParamsPos(line)
+            ID_POS, CHANNEL_POS, TALK_GROUP_POS = get_params_pos(line)
             print('Atributos encontrados!')
             break
         except UnboundLocalError:
             pass
-            #print('Não há os atributos aqui!')
-    
-    for line in logLines:
+    for line in log_lines:
         column = line.split(";")
-        attEvents(events, column, line)
-    
-    incompleteEvents = [key for key,value in events.items() if list(value.keys())!=COMPLETE_EVENT]
-    if(incompleteEvents):
+        att_events(events, column, line)
+
+    incomplete_events = [key for key, value in events.items() if list(value.keys()) != COMPLETE_EVENT]
+    if(incomplete_events):
         print('Existem eventos incompletos.')
         try:
-            nextFileName = getNextFileName(dir, fileName)
-            nextFilePath = os.path.join(dir, nextFileName)
-            nextLogLines = readFile(nextFilePath)
-            for event in incompleteEvents:
-                eventId = event.split('_')[0]
-                for line in [line for line in nextLogLines if eventId in line]:
+            next_file_name = get_next_file_name(dir_, file_name)
+            next_file_path = os.path.join(dir_, next_file_name)
+            next_log_lines = read_file(next_file_path)
+            for event in incomplete_events:
+                envent_id = event.split('_')[0]
+                for line in [line for line in next_log_lines if envent_id in line]:
                     column = line.split(";")
-                    attEvents(events, column, line)
-                print(f"Evento {eventId} foi adicionado pela informação subsequente!")
+                    att_events(events, column, line)
+                print(f"Evento {envent_id} foi adicionado pela informação subsequente!")
         except FileNotFoundError:
-            print(f'Próximo arquivo não está presente!\n\t{nextFileName}')
+            print(f'Próximo arquivo não está presente!\n\t{next_file_name}')
         except IndexError:
-            print(f'Arquivo: {fileName} está fora do padrão!')
+            print(f'Arquivo: {file_name} está fora do padrão!')
 
     for call in events.items():
         if "Duracao" in call[1]:
             calls.append(call[1])
-
-    #print(f"{datetime.now()} - Execução finalizada")
-
+    # print(f"{datetime.now()} - Execução finalizada")
     return events
-
-
